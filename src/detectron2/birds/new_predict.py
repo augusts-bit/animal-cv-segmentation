@@ -192,15 +192,87 @@ for i, tile in tqdm(enumerate(raster_tiles), total=len(raster_tiles)):
             # Identify the pixels where the mask is true
             mask_true_indices = masks[instance] == 1
 
-            # Assign class-specific values to the relevant portion of full_mask
-            full_mask[x:x + W, y:y + W][mask_true_indices] = class_ids[instance] + 1
-
-            # Update the relevant portion of full_mask
-            # full_mask[x:x + W, y:y + W] = np.logical_or(full_mask[x:x + W, y:y + W], masks[instance].astype(np.uint8))
+            # Update relevant portion of full_mask
+            full_mask[x:x + W, y:y + W][mask_true_indices] = class_ids[instance] + 1 # +1 to leave 0 as background
 
 plt.imsave("test.png", full_mask)
 
+# ==============================================================
 
+# Convert mask to shapefile with classes
 
+# ==============================================================
 
-    
+# Set categories
+if os.path.isfile('model/detectron2/model_categories.json'):
+    with open('model/detectron2/model_categories.json', 'r') as json_file:
+        categories = json.load(json_file) # make sure the categories are from the training and follow the indexing
+else:
+    # This might be incorrect incase different/new species are added in training
+    categories = {'0': 'anders', '1': 'dwergmeeuw', '2': 'grote stern', '3': 'kluut', '4': 'kokmeeuw', '5': 'visdief', '6': 'zwartkopmeeuw'}
+
+# Identify contours for each bird and what species they are
+contours = []
+majority_values = []
+
+for class_value in np.unique(full_mask):
+    if class_value == 0:  # Skip background
+        continue
+
+    mask_class = (full_mask == class_value).astype(np.uint8)
+    contours_class, _ = cv2.findContours(mask_class, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    for contour in contours_class:
+        # Find the bounding box of the contour
+        x, y, w, h = cv2.boundingRect(contour)
+
+        # Extract the region of interest (ROI)
+        roi = full_mask[y:y + h, x:x + w]
+
+        # Find the unique values and their counts in the ROI
+        unique_values, counts = np.unique(roi, return_counts=True)
+
+        # Exclude 0 from consideration (is background)
+        counts = counts[unique_values != 0]
+        unique_values = unique_values[unique_values != 0]
+
+        # Get the index of the maximum count (majority value) --> necessary in cases of overlap
+        majority_index = np.argmax(counts)
+        majority_value = unique_values[majority_index]
+
+        # Append the contour and its majority value
+        contours.append(contour)
+        majority_values.append(majority_value)
+
+# Create GeoDataFrame to store polygons
+polygons = gpd.GeoDataFrame(columns=['class_id', 'soort', 'geometry'])
+
+# Iterate over contours and create polygons
+for class_id, (contour, majority_value) in enumerate(zip(contours, majority_values), start=1):
+
+    # Geometry, loop through the points in the contour
+    geographic_points = []  
+    for point in contour.squeeze():
+        x_pixel, y_pixel = point[0], point[1]
+        x_geo = gt[0] + (x_pixel * gt[1]) + (y_pixel * gt[2]) # gt is geotransform of input raster (defined earlier)
+        y_geo = gt[3] + (x_pixel * gt[4]) + (y_pixel * gt[5])
+        geographic_points.append([x_geo, y_geo])
+    polygon = Polygon(geographic_points) # Create a polygon from the converted points
+
+    # Soort
+    species_name = categories.get(str(majority_value-1), 'Unknown') # 0 is background in mask, so values are +1 of actual IDs
+
+    # Append
+    instance_row = pd.DataFrame({'class_id': class_id, 'soort': species_name, 'geometry': polygon}, index=[0])
+    polygons = pd.concat([polygons, instance_row], ignore_index=True)
+
+# Transform geometry
+with rasterio.open(os.path.join("input", rastername)) as src:
+    transform = src.transform
+    crs = src.crs
+
+# Transform the geometry of the polygons to match that of the original raster (will still need to do 'Define Projection' in ArcGIS Pro)
+polygons = polygons.set_crs(crs)
+
+# Save the transformed GeoDataFrame
+polygons.to_file('output.shp', crs=crs)
