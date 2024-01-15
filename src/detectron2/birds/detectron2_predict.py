@@ -94,21 +94,35 @@ from helpers.def_custom_sliced_predict import *
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", type=str, default=None)
 parser.add_argument("--overlap", type=float, default=0.5)
+parser.add_argument("--threshold", type=float, default=0.3)
 args = parser.parse_args()
 
 if args.input is None:
     raster_files = [file for file in os.listdir("input") if file.lower().endswith(('.tif', '.tiff', ".TIF", ".TIFF"))]
     if raster_files:
-        print("Doing", raster_files[0], "in input folder. To do other raster in input folder use --input 'rastername.tif'.")
         args.input = raster_files[0]
     else:
-        print("No (valid) input given or in folder.")
+        print("No (valid) input given or in folder. Load raster in input folder.")
+        sys.exit()
+else:
+    if args.input not in os.listdir("input"):
+        print("-----------------------------------")
+        print(args.input, "does not exist.")
+        print("-----------------------------------")
+        sys.exit()
 
+print("-----------------------------------")
+print("Doing", args.input, "in input folder. To do other raster in input folder use --input 'rastername.tif'.")
+print("-----------------------------------")
 # ==============================================================
 
 # Load image / raster and tile
 
 # ==============================================================
+
+print("-----------------------------------")
+print("Converted raster to image and making tiles... (see slices folder)")
+print("-----------------------------------")
 
 # Save folder
 if os.path.isdir("slices"): # remove old slices folder so that it always contains slices of current run (will be made during prediction)
@@ -183,11 +197,17 @@ else:
 cfg = get_cfg()
 cfg.merge_from_file("model/detectron2/model_cfg.yaml")
 cfg.MODEL.WEIGHTS =  "model/detectron2/model_weights.pt"
-cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.3   # set a custom testing threshold
+cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = args.threshold   # set a custom testing threshold
 cfg.INPUT.MIN_SIZE_TEST = 538 # 0 is no rescale
 cfg.INPUT.MIN_SIZE_TRAIN = (538,) # trained on 538
 cfg.MODEL.DEVICE = device_name
+# cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 10000 # Detect more instances? (https://github.com/facebookresearch/detectron2/issues/1481)
+# cfg.MODEL.RPN.PRE_NMS_TOPK_TEST = 10000
 predictor = DefaultPredictor(cfg)
+
+print("-----------------------------------")
+print("Loaded model, will do inference... See output/[x]_mask.png for progress and output in case of crash.")
+print("-----------------------------------")
 
 # Create a binary mask for the entire original image
 full_mask = np.zeros_like(raster_img[:,:,0], dtype=np.uint8)
@@ -250,6 +270,10 @@ plt.imsave("output/"+os.path.splitext(rastername)[0]+"_mask.png", full_mask) # F
 # Convert mask to shapefile with classes
 
 # ==============================================================
+
+print("-----------------------------------")
+print("Done with inference, converting mask to shapefile...")
+print("-----------------------------------")
 
 # Set categories
 if os.path.isfile('model/detectron2/model_categories.json'):
@@ -331,3 +355,7 @@ polygons = polygons.set_crs(crs)
 
 # Save the transformed GeoDataFrame
 polygons.to_file("output/"+os.path.splitext(rastername)[0]+"_polygons.shp", crs=crs)
+
+print("-----------------------------------")
+print("Done! See output folder.")
+print("-----------------------------------")
