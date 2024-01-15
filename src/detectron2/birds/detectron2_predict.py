@@ -99,7 +99,7 @@ args = parser.parse_args()
 if args.input is None:
     raster_files = [file for file in os.listdir("input") if file.lower().endswith(('.tif', '.tiff', ".TIF", ".TIFF"))]
     if raster_files:
-        print("Doing", raster_files[0], "in input folder. Do other raster in input folder using --input 'rastername.tif'.")
+        print("Doing", raster_files[0], "in input folder. To do other raster in input folder use --input 'rastername.tif'.")
         args.input = raster_files[0]
     else:
         print("No (valid) input given or in folder.")
