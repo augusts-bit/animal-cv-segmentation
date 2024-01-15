@@ -243,6 +243,8 @@ for i, tile in tqdm(enumerate(raster_tiles), total=len(raster_tiles)):
     if (i + 1) % 20 == 0:
         plt.imsave("output/"+os.path.splitext(rastername)[0]+"_mask.png", full_mask) # you can use the mask to create shapefiles in case of crash (continue at next step)
 
+plt.imsave("output/"+os.path.splitext(rastername)[0]+"_mask.png", full_mask) # Final mask save
+
 # ==============================================================
 
 # Convert mask to shapefile with classes
