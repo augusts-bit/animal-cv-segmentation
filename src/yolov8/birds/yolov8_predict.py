@@ -66,21 +66,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--input", type=str, default=None)
 parser.add_argument("--overlap", type=float, default=0.5)
 parser.add_argument("--threshold", type=float, default=0.3)
-parser.add_argument("--model", type=str, default='10') # subfolder name of location of model
+parser.add_argument("--model", type=str, default="10") # subfolder name of location of model
 args = parser.parse_args()
-
-# if args.input not in os.listdir("input"):
-#     print("-----------------------------------")
-#     print(args.input, "does not exist.")
-#     print("-----------------------------------")
-#     sys.exit()
 
 if args.input is None:
     raster_files = [file for file in os.listdir("input") if file.lower().endswith(('.tif', '.tiff', ".TIF", ".TIFF"))]
     if raster_files:
         args.input = raster_files[0]
     else:
-        print("No (valid) input given or in folder.")
+        print("No (valid) input given or in folder. Load raster in input folder.")
+        sys.exit()
+else:
+    if args.input not in os.listdir("input"):
+        print("-----------------------------------")
+        print(args.input, "does not exist.")
+        print("-----------------------------------")
         sys.exit()
 
 print("-----------------------------------")
@@ -94,7 +94,7 @@ print("-----------------------------------")
 # ==============================================================
 
 print("-----------------------------------")
-print("Converted raster to image and making tiles... (see slices folder)")
+print("Converting", args.input, "to image and making tiles... (see slices folder)")
 print("-----------------------------------")
 
 # Save folder
@@ -228,7 +228,7 @@ for i, tile in tqdm(enumerate(raster_tiles), total=len(raster_tiles)):
 
     # Save mask and progress
     if (i + 1) % 20 == 0:
-        plt.imsave("output/"+os.path.splitext(rastername)[0]+"_mask.png", full_mask) # you can use the mask to create shapefiles in case of crash (continue at next step)
+        plt.imsave("output/"+os.path.splitext(rastername)[0]+"_mask.png", full_mask) # you can use the mask to create shapefiles in case of crash/stop (continue at next step)
 
 plt.imsave("output/"+os.path.splitext(rastername)[0]+"_mask.png", full_mask) # Final mask save
 
