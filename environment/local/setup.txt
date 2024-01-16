@@ -6,30 +6,32 @@
 # CUDA Toolkits (and maybe also CUDNN)
 
 # Create environment
-conda create -n sahi_env python=3.8
-conda activate sahi_env
+conda create -n bird_predict_env python=3.8
+conda activate bird_predict_env
 
 # Install CUDA for GPU support
 conda install cudatoolkit
 
 # Install torch (see https://pytorch.org/get-started/locally/) --> check CUDA version if CUDA
+# check CUDA version: nvidia-smi in terminal
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip3 install torch torchvision torchaudio # Without CUDA
+pip3 install torch torchvision torchaudio # Used in study, without CUDA
 
-# Install detectron2
+# Install detectron2 (if torch with CUDA and CUDA version don't match, will not install)
 pip install git+https://github.com/facebookresearch/detectron2.git
 
 # Install YOLOv8
 pip install ultralytics
 
 # Install SAHI (clone SAHI and get pull request to support YOLO segmentation)
+# Need to be in 'safe' directory and logged in with GitHub
 git clone https://github.com/obss/sahi.git sahipredict # name differently to prevent module import errors
 cd sahipredict
 git pull origin pull/918/head # pull request https://github.com/obss/sahi/pull/918
 pip install -e . # install local sahi as package
 cd.. # move back up
 
-# if you just want to download sahi for detectron2: pip install sahi
+# if you just want to download sahi for detectron2: pip install sahi (YOLOv8 will not work properly)
 
 # Install GDAL, geopandas, rasterio
 conda install gdal=3.0.2 # this version solves import issue
@@ -47,4 +49,11 @@ conda install -c conda-forge matplotlib
 # If OMP: Error #15
 conda install nomkl --channel conda-forge # May need to install some packages again, but maybe not
 
+# Check
+conda list
 
+# Export YAML with dependencies
+conda env export > bird_predict_env.yml
+
+# Close
+conda deactivate
