@@ -317,7 +317,7 @@ for class_value in np.unique(full_mask):
         majority_values.append(majority_value)
 
 # Create GeoDataFrame to store polygons
-polygons = gpd.GeoDataFrame(columns=['soort', 'grootte', 'geometry'])
+polygons = gpd.GeoDataFrame(columns=['soort_id', 'soort', 'grootte', 'geometry'])
 
 # Iterate over contours and create polygons
 for class_id, (contour, majority_value) in enumerate(zip(contours, majority_values), start=1):
@@ -342,7 +342,7 @@ for class_id, (contour, majority_value) in enumerate(zip(contours, majority_valu
     species_name = categories.get(str(majority_value-1), 'Unknown') # 0 is background in mask, so values are +1 of actual IDs
 
     # Append
-    instance_row = pd.DataFrame({'soort': species_name, 'grootte': polygon.area, 'geometry': polygon}, index=[0])
+    instance_row = pd.DataFrame({'soort_id': majority_value, 'soort': species_name, 'grootte': polygon.area, 'geometry': polygon}, index=[0])
     polygons = pd.concat([polygons, instance_row], ignore_index=True)
 
 # Transform geometry
