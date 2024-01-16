@@ -66,6 +66,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--input", type=str, default=None)
 parser.add_argument("--overlap", type=float, default=0.5)
 parser.add_argument("--threshold", type=float, default=0.3)
+parser.add_argument("--model", type=str, default='10') # subfolder name of location of model
 args = parser.parse_args()
 
 # if args.input not in os.listdir("input"):
@@ -166,7 +167,7 @@ else:
     device_name = 'cpu'
 
 # Get model
-model = YOLO('model/yolov8/1/best.pt')
+model = YOLO('model/yolov8/'+str(args.model)+'/best.pt')
 
 print("-----------------------------------")
 print("Loaded model, will do inference... See output/[x]_mask.png for progress and output in case of crash.")
@@ -242,8 +243,8 @@ print("Done with inference, converting mask to shapefile...")
 print("-----------------------------------")
 
 # Set categories
-if os.path.isfile('model/yolov8/1/model_categories.json'):
-    with open('model/yolov8/1/model_categories.json', 'r') as json_file:
+if os.path.isfile('model/yolov8/'+str(args.model)+'/model_categories.json'):
+    with open('model/yolov8/'+str(args.model)+'/model_categories.json', 'r') as json_file:
         categories = json.load(json_file) # make sure the categories are from the training and follow the indexing
 else:
     # This might be incorrect incase different/new species are added in training
@@ -283,7 +284,7 @@ for class_value in np.unique(full_mask):
         majority_values.append(majority_value)
 
 # Create GeoDataFrame to store polygons
-polygons = gpd.GeoDataFrame(columns=['soort', 'grootte', 'geometry'])
+polygons = gpd.GeoDataFrame(columns=['soort_id', 'soort', 'grootte', 'geometry'])
 
 # Iterate over contours and create polygons
 for class_id, (contour, majority_value) in enumerate(zip(contours, majority_values), start=1):
@@ -308,7 +309,7 @@ for class_id, (contour, majority_value) in enumerate(zip(contours, majority_valu
     species_name = categories.get(str(majority_value-1), 'Unknown') # 0 is background in mask, so values are +1 of actual IDs
 
     # Append
-    instance_row = pd.DataFrame({'soort': species_name, 'grootte': polygon.area, 'geometry': polygon}, index=[0])
+    instance_row = pd.DataFrame({'soort_id': majority_value, 'soort': species_name, 'grootte': polygon.area, 'geometry': polygon}, index=[0])
     polygons = pd.concat([polygons, instance_row], ignore_index=True)
 
 # Transform geometry
