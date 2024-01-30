@@ -110,16 +110,17 @@ os.makedirs('outputs/model', exist_ok=True)
 
 # ==============================================================
 
-categories, min_width, min_height = get_classes_sizes(ann_files)
+# ann_files = sorted(os.listdir(os.path.join(args.traindata, "annotations")))
+categories, min_width, min_height = get_classes_sizes(os.path.join(args.traindata, "annotations"))
 soorten = sorted(list(set(categories)))
 print("Dataset contains:", soorten)
 print("Minimum width and heigth:", min_width, "x", min_height) # maybe base rescaling of this
 
-# save dictionary of classes for SAHI
+# save dictionary of classes
 soorten_dict = {str(index): bird for index, bird in enumerate(soorten)}
 with open('outputs/model_categories.json', 'w') as json_file:
-    json.dump(soorten_dict, json_file)
-
+    json.dump(soorten_dict, json_file)    
+    
 # ==============================================================
 
 # Load a custom data set
