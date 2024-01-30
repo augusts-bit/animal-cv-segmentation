@@ -14,7 +14,7 @@ Original file is located at
 # ------------------------------------------------------------------------------------- #
 
 import os, re, random
-import pandas
+import pandas as pd
 import cv2
 from ultralytics import YOLO
 # from utils.datasets import *
@@ -45,7 +45,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--traindata")
 parser.add_argument("--epochs", type=int, default=1)
 parser.add_argument("--batch", type=int, default=3)
-parser.add_argument("--lr0", type=float, default=0.00025)
+parser.add_argument("--lr0", type=float, default=0.01)
 parser.add_argument("--imgsz", type=int, default=538)
 args = parser.parse_args()
 
@@ -63,7 +63,7 @@ soorten = sorted(list(set(categories)))
 print("Dataset contains:", soorten)
 print("Minimum width and heigth:", min_width, "x", min_height) # maybe base rescaling of this
 
-# save dictionary of classes for SAHI
+# save dictionary of classes
 soorten_dict = {str(index): bird for index, bird in enumerate(soorten)}
 with open('outputs/model_categories.json', 'w') as json_file:
     json.dump(soorten_dict, json_file)
@@ -166,7 +166,7 @@ model.train(**args)
 # ------------------------------------------------------------------------------------- #
 
 # Path to the 'results.csv' file
-results_csv_path = os.path.join('outputs', 'runs', 'segment', 'results.csv')
+results_csv_path = os.path.join('outputs', 'train', 'results.csv')
 
 # Read the CSV file into a DataFrame
 df = pd.read_csv(results_csv_path)
