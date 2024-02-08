@@ -1,5 +1,6 @@
-## Make sure you have 
-# Anaconda
+# Make sure you have Anaconda
+
+# Perhaps not necessary, but for GPU support
 # GCC/G++ (https://sourceforge.net/projects/mingw/ --> follow https://www.scaler.com/topics/c/c-compiler-for-windows/
 #		and maybe also --> Microsoft Visual Studio Installer --> Desktop development with C++)
 # Check: gcc --version and g++ --version
@@ -23,8 +24,6 @@ pip install git+https://github.com/facebookresearch/detectron2.git
 # Install YOLOv8
 pip install ultralytics
 
-# if you just want to download sahi for detectron2: pip install sahi (YOLOv8 will not work properly)
-
 # Install Gooey for GUI (https://github.com/chriskiehl/Gooey)
 pip install Gooey
 
@@ -44,7 +43,7 @@ conda install -c conda-forge matplotlib
 # If OMP: Error #15
 conda install nomkl --channel conda-forge # May need to install some packages again, but maybe not
 
-## Install SAHI --> not necessary
+## Install SAHI --> optional
 # Clone SAHI and get pull request to support YOLO segmentation
 # Need to be in 'safe' directory and logged in with GitHub
 git clone https://github.com/obss/sahi.git sahipredict # name differently to prevent module import errors
@@ -52,6 +51,8 @@ cd sahipredict
 git pull origin pull/918/head # pull request https://github.com/obss/sahi/pull/918
 pip install -e . # install local sahi as package
 cd.. # move back up
+
+# if you just want to download sahi for detectron2: pip install sahi (YOLOv8 will not work properly)
 
 # Check
 conda list
