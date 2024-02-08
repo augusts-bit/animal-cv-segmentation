@@ -79,7 +79,7 @@ def main(args):
 # ==============================================================
 
     print("-----------------------------------")
-    print(args.input, "wordt geknipt... (zie ..\output\slices)")
+    print(args.input, "wordt geknipt... (zie slices folder)")
     print("-----------------------------------")
 
     # Save folder
@@ -155,7 +155,7 @@ def main(args):
     model = YOLO(os.path.join(str(args.model),'best.pt'))
 
     print("-----------------------------------")
-    print("Model is geladen, begint met segmentatie en classificatie... Zie ..\output\"+str(os.path.splitext(rastername)[0])+"_YOLOv8_mask.png voor progressie (en back-up bij crash)")
+    print("Model is geladen, begint met segmentatie en classificatie... Zie " + str(os.path.splitext(rastername)[0]) + "_YOLOv8_mask.png voor progressie (en back-up bij crash)")
     print("-----------------------------------")
 
     # Create a binary mask for the entire original image
@@ -254,7 +254,7 @@ def main(args):
 # ==============================================================
 
     print("-----------------------------------")
-    print("Klaar, " + "..\output\"+os.path.splitext(rastername)[0]+"_YOLOv8_mask.png" + " wordt geconverteerd naar ESRI shapefile...")
+    print("Klaar, " + os.path.splitext(rastername)[0] + "_YOLOv8_mask.png" + " wordt geconverteerd naar ESRI shapefile...")
     print("-----------------------------------")
 
     # Set categories
@@ -327,6 +327,10 @@ def main(args):
         instance_row = pd.DataFrame({'soort_id': majority_value, 'soort': species_name, 'grootte': polygon.area, 'geometry': polygon}, index=[0])
         polygons = pd.concat([polygons, instance_row], ignore_index=True)
 
+    print("-----------------------------------")
+    print("Nabewerken...")
+    print("-----------------------------------")
+
     # Remove geometries smaller than 0.005 (small leftover pixel masks due to merging)
     polygons = polygons[polygons['grootte'] >= 0.005]
 
@@ -338,11 +342,23 @@ def main(args):
     # Transform the geometry of the polygons to match that of the original raster (will still need to do 'Define Projection' in ArcGIS Pro)
     polygons = polygons.set_crs(crs)
 
+    # Add extra field of nearest distance to filter out multiple predictions per object
+    distances = []
+    for index, row in polygons.iterrows():
+        others = polygons.copy()
+        others = others.drop(index)
+        current = row['geometry']
+        nearest_distance = others.distance(current).sort_values().iloc[0]
+        distances.append(nearest_distance)
+
+    distance_series = pd.Series(distances)
+    polygons['k_afstand'] = distance_series
+
     # Save the transformed GeoDataFrame
     polygons.to_file(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_YOLOv8_polygons.shp"), crs=crs)
 
     print("-----------------------------------")
-    print("Klaar! Zie " + "..\output\"+os.path.splitext(rastername)[0]+"_YOLOv8_polygons.shp")
+    print("Klaar! Zie " + os.path.splitext(rastername)[0] + "_YOLOv8_polygons.shp")
     print("-----------------------------------")
 
 # Run
