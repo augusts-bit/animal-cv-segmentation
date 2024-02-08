@@ -8,7 +8,6 @@
 
 # To avoid error: NotImplementedError: A UTF-8 locale is required. Got ANSI_X3.4-1968
 import locale
-print(locale.getpreferredencoding())
 
 def getpreferredencoding(do_setlocale = True):
     return "UTF-8"
@@ -16,7 +15,6 @@ locale.getpreferredencoding = getpreferredencoding
 
 # Detectron and torch (check for correct versions)
 import torch, detectron2
-print("imported torch and detectron2")
 
 # Parse arguments
 import argparse
@@ -93,10 +91,14 @@ import sys
 # ==============================================================
 
 def main(args):
-
+    
     # First create output directory
-    if os.path.isdir('output') == False:
-        os.makedirs('output')
+    if os.path.isdir(os.path.join(args.output, 'output')) == False:
+        os.makedirs(os.path.join(args.output, 'output'))
+
+    print("-----------------------------------")
+    print("Alle output bevindt zicht in "+str(os.path.join(args.output,'output')))
+    print("-----------------------------------")
 
 # ==============================================================
 
@@ -105,26 +107,27 @@ def main(args):
 # ==============================================================
 
     print("-----------------------------------")
-    print(args.input, "wordt geknipt... (zie 'slices' folder)")
+    print(args.input, "wordt geknipt... (zie ..\output\slices)")
     print("-----------------------------------")
 
     # Save folder
-    if os.path.isdir("slices"): # remove old slices folder so that it always contains slices of current run (will be made during prediction)
-        shutil.rmtree("slices")
+    if os.path.isdir(os.path.join(args.output, 'output',
+                                  'slices')):  # remove old slices folder so that it always contains slices of current run (will be made during prediction)
+        shutil.rmtree(os.path.join(args.output, 'output', 'slices'))
 
-    os.makedirs("slices")
+    os.makedirs(os.path.join(args.output, 'output', 'slices'))
 
     # Load raster, convert to image and tile
     rastername = os.path.basename(args.input)
     raster_data_set = gdal.Open(args.input)
 
     gt = raster_data_set.GetGeoTransform()
-    pixelSizeX = gt[1] # cell size
+    pixelSizeX = gt[1]  # cell size
 
     # Convert to array image
-    raster_band_1 = raster_data_set.GetRasterBand(1) # red channel
-    raster_band_2 = raster_data_set.GetRasterBand(2) # green channel
-    raster_band_3 = raster_data_set.GetRasterBand(3) # blue channel
+    raster_band_1 = raster_data_set.GetRasterBand(1)  # red channel
+    raster_band_2 = raster_data_set.GetRasterBand(2)  # green channel
+    raster_band_3 = raster_data_set.GetRasterBand(3)  # blue channel
     raster_b1 = raster_band_1.ReadAsArray()
     raster_b2 = raster_band_2.ReadAsArray()
     raster_b3 = raster_band_3.ReadAsArray()
@@ -136,7 +139,7 @@ def main(args):
     target_cs = 0.011272670412636411
 
     # Tile pixel size (depending on cell size)
-    W = round(445 * (target_cs/pixelSizeX)) # ~ 5.0 m x 5.0 m # was 350
+    W = round(445 * (target_cs / pixelSizeX))  # ~ 5.0 m x 5.0 m # was 350
 
     # Split into tiles
 
@@ -159,11 +162,11 @@ def main(args):
     # Save
     n = 1
     for raster_tile in raster_tiles:
-        raster_tile_name = "slices/" + os.path.splitext(rastername)[0] + str(n) + ".png"
-        raster_tile = cv2.convertScaleAbs(raster_tile) # convert to uint8
+        raster_tile_name = os.path.join(args.output, 'output', 'slices', os.path.splitext(rastername)[0] + str(n) + ".png")
+        raster_tile = cv2.convertScaleAbs(raster_tile)  # convert to uint8
         plt.imsave(raster_tile_name, raster_tile)
         n = n + 1
-
+        
     # ==============================================================
 
     # Inference/predict
@@ -190,11 +193,12 @@ def main(args):
     predictor = DefaultPredictor(cfg)
 
     print("-----------------------------------")
-    print("Model is geladen, begint met segmentatie en classificatie... Zie output/" + str(os.path.splitext(rastername)[0]) + "_MaskRCNN_mask.png voor progressie (en back-up bij crash)")
+    print("Model is geladen, begint met segmentatie en classificatie... Zie ..\output\" + str(os.path.splitext(rastername)[0]) + "_MaskRCNN_mask.png voor progressie (en back-up bij crash)")
     print("-----------------------------------")
 
     # Create a binary mask for the entire original image
     full_mask = np.zeros_like(raster_img[:,:,0], dtype=np.uint8)
+    score_mask = np.zeros_like(raster_img[:,:,0], dtype=np.uint8)
 
     # Skip white images
     def all_white_pixels(image):
@@ -216,7 +220,7 @@ def main(args):
     # for i, tile in tqdm(enumerate(raster_tiles), total=len(raster_tiles)):
 
         # Load tile image
-        tile_path = "slices/" + os.path.splitext(rastername)[0] + str(i+1) + ".png"
+        tile_path = os.path.join(args.output, 'output', 'slices', os.path.splitext(rastername)[0] + str(i+1) + ".png")
         im = cv2.imread(tile_path)
 
         # Skip if white image
@@ -229,6 +233,7 @@ def main(args):
         # Get model's output
         masks = outputs["instances"].get('pred_masks').cpu().numpy()
         class_ids = outputs["instances"].get('pred_classes').cpu().numpy()
+        scores = outputs["instances"].get('scores').cpu().numpy()
 
         # Calculate the position of the tile in the original image
         x, y = tile_locations[i]
@@ -242,12 +247,25 @@ def main(args):
                 # Identify the pixels where the mask is true
                 mask_true_indices = masks[instance] == 1
 
-                # Update relevant portion of full_mask
-                full_mask[x:x + W, y:y + W][mask_true_indices] = class_ids[instance] + 1 # +1 to leave 0 as background
+                # Check for previous detection and confidence score of location first
+                score_values = score_mask[x:x + W, y:y + W][mask_true_indices]
+                score_values = score_values[score_values != 0]
+
+                if len(score_values) > 0:
+                    unique_values, counts = np.unique(score_values, return_counts=True)
+                    score_value = unique_values[np.argmax(counts)]
+                else:
+                    score_value = 0
+
+                # Update relevant portion of full_mask depending on confidence score
+                if score_value < int(np.around(scores[instance]*100,0)):
+                    full_mask[x:x + W, y:y + W][mask_true_indices] = class_ids[instance] + 1 # +1 to leave 0 as background
+                    score_mask[x:x + W, y:y + W][mask_true_indices] = int(np.around(scores[instance]*100,0))
 
         # Save mask and progress
         if (i + 1) % 20 == 0:
-            plt.imsave("output/"+os.path.splitext(rastername)[0]+"_MaskRCNN_mask.png", full_mask) # you can use the mask to create shapefiles in case of crash/stop (continue at next step)
+            plt.imsave(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_mask.png"), full_mask)
+            # you can use the mask to create shapefiles in case of crash/stop (continue at next step)
 
             # Calculate time
             end = time.time()
@@ -262,7 +280,7 @@ def main(args):
                                                                          time.gmtime(int(total_time)))))  # , end='\r')
 
     print("Totale tijd:", time.strftime('%H:%M:%S', time.gmtime(int(time.time() - start))))  # Final time
-    plt.imsave("output/"+os.path.splitext(rastername)[0]+"_MaskRCNN_mask.png", full_mask) # Final mask save
+    plt.imsave(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_mask.png"), full_mask) # Final mask save
 
     # ==============================================================
 
@@ -271,7 +289,7 @@ def main(args):
     # ==============================================================
 
     print("-----------------------------------")
-    print("Klaar, " + "output/"+os.path.splitext(rastername)[0]+"_MaskRCNN_mask.png" + " wordt geconverteerd naar ESRI shapefile...")
+    print("Klaar, " + "..\output\"+os.path.splitext(rastername)[0]+"_MaskRCNN_mask.png" + " wordt geconverteerd naar ESRI shapefile...")
     print("-----------------------------------")
 
     # Set categories
@@ -344,6 +362,9 @@ def main(args):
         instance_row = pd.DataFrame({'soort_id': majority_value, 'soort': species_name, 'grootte': polygon.area, 'geometry': polygon}, index=[0])
         polygons = pd.concat([polygons, instance_row], ignore_index=True)
 
+    # Remove geometries smaller than 0.005 (small leftover pixel masks due to merging)
+    polygons = polygons[polygons['grootte'] >= 0.005]
+
     # Transform geometry
     with rasterio.open(args.input) as src:
         transform = src.transform
@@ -353,10 +374,10 @@ def main(args):
     polygons = polygons.set_crs(crs)
 
     # Save the transformed GeoDataFrame
-    polygons.to_file("output/"+os.path.splitext(rastername)[0]+"_MaskRCNN_polygons.shp", crs=crs)
+    polygons.to_file(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_polygons.shp"), crs=crs)
 
     print("-----------------------------------")
-    print("Klaar! Zie " + "output/"+os.path.splitext(rastername)[0]+"_MaskRCNN_polygons.shp")
+    print("Klaar! Zie " + "..\output\"+os.path.splitext(rastername)[0]+"_MaskRCNN_polygons.shp")
     print("-----------------------------------")
 
 # Run

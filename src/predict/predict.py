@@ -104,10 +104,12 @@ def main():
     parser = GooeyParser()
     parser.add_argument("input", type=str, widget="FileChooser", # TIF file of input orthophoto
                         help="Raster dat gebruikt wordt als input")
+    parser.add_argument("output", type=str, widget="DirChooser", default=os.getcwd(), # Output location
+                        help="Locatie voor output (een folder wordt aangemaakt)")
+    parser.add_argument("modeltype", type=str, choices=['Mask R-CNN', 'YOLOv8'], default='YOLOv8', widget="Dropdown",
+                        help="Geef aan welk model")
     parser.add_argument("model", type=str, widget="DirChooser", # subfolder name of location of model
                         help="Folder locatie van model weights (*.pt, *.pth), configuratie (*.yaml) en categories.json")
-    parser.add_argument("modeltype", type=str, choices=['Mask R-CNN', 'YOLOv8'], default='YOLOv8', widget="Dropdown",
-                        help="Geef aan welk model (zorg ervoor dat het overeenkomt met juiste model folder)")
     parser.add_argument("--overlap", type=range_limited_float_type, default=0.5, widget='DecimalField',
                         help="Horizontale en verticale overlap fractie tussen geknipte fotos")
     parser.add_argument("--threshold", type=range_limited_float_type, default=0.3, widget='DecimalField',
@@ -116,11 +118,11 @@ def main():
 
     # Run Detectron2 or YOLOv8 prediction script
     if args.modeltype == "YOLOv8":
-        import yolov8_predict  # YOLO prediction
-        yolov8_predict.main(args)
+        import yolov8_predict_test  # YOLO prediction
+        yolov8_predict_test.main(args)
     if args.modeltype == "Mask R-CNN":
-        import detectron2_predict  # Mask R-CNN prediction
-        detectron2_predict.main(args)
+        import detectron2_predict_test  # Mask R-CNN prediction
+        detectron2_predict_test.main(args)
     else:
         print("Geen geldige modeltype")
 
