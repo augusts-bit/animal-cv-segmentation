@@ -60,14 +60,14 @@ from detectron2.engine import DefaultTrainer
 # Other
 import sys, os, distutils.core
 from torchvision.io import read_image
-from pycocotools import mask as coco_mask
 import cv2
 from osgeo import gdal
 import geopandas as gpd
 from pyproj import CRS
 import matplotlib.image as mpimg
 import rasterio
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, LineString, MultiPolygon
+from shapely.affinity import scale
 import random
 import rasterio
 from rasterio.windows import from_bounds
@@ -345,7 +345,8 @@ def main(args):
             if np.isscalar(point):  # Check if point is a scalar
                 continue
             x_pixel, y_pixel = point[0], point[1]
-            x_geo = gt[0] + (x_pixel * gt[1]) + (y_pixel * gt[2]) # gt is geotransform of input raster (defined earlier)
+            x_geo = gt[0] + (x_pixel * gt[1]) + (
+                        y_pixel * gt[2])  # gt is geotransform of input raster (defined earlier)
             y_geo = gt[3] + (x_pixel * gt[4]) + (y_pixel * gt[5])
             geographic_points.append([x_geo, y_geo])
 
@@ -353,18 +354,16 @@ def main(args):
         if len(geographic_points) < 4:
             continue
 
-        polygon = Polygon(geographic_points) # Create a polygon from the converted points
+        polygon = Polygon(geographic_points)  # Create a polygon from the converted points
 
         # Soort
-        species_name = categories.get(str(majority_value-1), 'Unknown') # 0 is background in mask, so values are +1 of actual IDs
+        species_name = categories.get(str(majority_value - 1),
+                                      'Unknown')  # 0 is background in mask, so values are +1 of actual IDs
 
         # Append
-        instance_row = pd.DataFrame({'soort_id': majority_value, 'soort': species_name, 'grootte': polygon.area, 'geometry': polygon}, index=[0])
+        instance_row = pd.DataFrame(
+            {'soort_id': majority_value, 'soort': species_name, 'grootte': polygon.area, 'geometry': polygon}, index=[0])
         polygons = pd.concat([polygons, instance_row], ignore_index=True)
-
-    print("-----------------------------------")
-    print("Nabewerken...")
-    print("-----------------------------------")
 
     # Remove geometries smaller than 0.005 (small leftover pixel masks due to merging)
     polygons = polygons[polygons['grootte'] >= 0.005]
@@ -376,18 +375,6 @@ def main(args):
 
     # Transform the geometry of the polygons to match that of the original raster (will still need to do 'Define Projection' in ArcGIS Pro)
     polygons = polygons.set_crs(crs)
-
-    # Add extra field of nearest distance to filter out multiple predictions per object
-    distances = []
-    for index, row in polygons.iterrows():
-        others = polygons.copy()
-        others = others.drop(index)
-        current = row['geometry']
-        nearest_distance = others.distance(current).sort_values().iloc[0]
-        distances.append(nearest_distance)
-
-    distance_series = pd.Series(distances)
-    polygons['k_afstand'] = distance_series
 
     # Save the transformed GeoDataFrame
     polygons.to_file(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_polygons.shp"), crs=crs)
