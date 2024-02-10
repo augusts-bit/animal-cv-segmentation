@@ -334,7 +334,8 @@ def main(args):
             majority_values.append(majority_value)
 
     # Create GeoDataFrame to store polygons
-    polygons = gpd.GeoDataFrame(columns=['soort_id', 'soort', 'grootte', 'geometry'])
+    polygons = gpd.GeoDataFrame(columns=['pred_id', 'soort_id', 'soort', 'grootte', 'geometry'])
+    id = 1
 
     # Iterate over contours and create polygons
     for class_id, (contour, majority_value) in enumerate(zip(contours, majority_values), start=1):
@@ -362,8 +363,10 @@ def main(args):
 
         # Append
         instance_row = pd.DataFrame(
-            {'soort_id': majority_value, 'soort': species_name, 'grootte': polygon.area, 'geometry': polygon}, index=[0])
+            {'pred_id': id, 'soort_id': majority_value, 'soort': species_name, 'grootte': polygon.area,
+             'geometry': polygon}, index=[0])
         polygons = pd.concat([polygons, instance_row], ignore_index=True)
+        id = id + 1
 
     # Remove geometries smaller than 0.005 (small leftover pixel masks due to merging)
     polygons = polygons[polygons['grootte'] >= 0.005]
@@ -375,6 +378,13 @@ def main(args):
 
     # Transform the geometry of the polygons to match that of the original raster (will still need to do 'Define Projection' in ArcGIS Pro)
     polygons = polygons.set_crs(crs)
+
+    # Join nearest to spot bad predictions (e.g., double predictions for one bird are often really close to each other)
+    if sys.version_info >= (3, 9): # can only with Python >=3.9 for right GeoPandas version
+        polygons_joined = gpd.sjoin_nearest(polygons, polygons, distance_col="k_afstand", exclusive=True) #.reset_index(drop=True)
+        polygons_joined = polygons_joined.rename(columns={'pred_id_left': 'pred_id'})
+        polygons = polygons.merge(polygons_joined[["pred_id", "k_afstand"]], on='pred_id')
+
 
     # Save the transformed GeoDataFrame
     polygons.to_file(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_polygons.shp"), crs=crs)
