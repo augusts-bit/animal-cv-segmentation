@@ -1,5 +1,3 @@
-# Based on https://github.com/obss/sahi/blob/main/demo/inference_for_detectron2.ipynb
-
 # ==============================================================
 
 # Setup and import

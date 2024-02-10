@@ -1,5 +1,3 @@
-# Based on https://github.com/obss/sahi/blob/main/demo/inference_for_detectron2.ipynb
-
 # ==============================================================
 
 # Setup and import
@@ -384,7 +382,6 @@ def main(args):
         polygons_joined = gpd.sjoin_nearest(polygons, polygons, distance_col="k_afstand", exclusive=True) #.reset_index(drop=True)
         polygons_joined = polygons_joined.rename(columns={'pred_id_left': 'pred_id'})
         polygons = polygons.merge(polygons_joined[["pred_id", "k_afstand"]], on='pred_id')
-
 
     # Save the transformed GeoDataFrame
     polygons.to_file(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_polygons.shp"), crs=crs)
