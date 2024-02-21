@@ -142,7 +142,7 @@ def rasterise(args, shapes, soorten):
     return soort_raster
 
 # Tile
-def tile(imgpath, maskpath):
+def tile(imgpath, maskpath, tile_size=5, overlap_pc=0.5):
     # Open with GDAL
     raster_data_set = gdal.Open(imgpath)
     mask_data_set = gdal.Open(maskpath)
@@ -169,11 +169,14 @@ def tile(imgpath, maskpath):
     mask_img = mask_img[0].T  # Transpose because axis was inverted (because of invert?)
 
     # cell size of Texel PHZ
+    # Number of pixels to get necessary spatial size (in case of Texel PHZ)
     target_cs = 0.011272670412636411
+    n_pixels = int(tile_size/target_cs)
 
     # W tile pixel size (depending on cell size) and overlap
-    W = round(445 * (target_cs / pixelSizeX))  # ~ 5.0 m x 5.0 m
-    overlap_percentage = 0.5  # make extra tiles with overlap (every bird will be accounted this way, not cut in half)
+    # W = round(n_pixels * (target_cs / pixelSizeX))  # ~ 445 for 5.0 m x 5.0 m
+    W = int(tile_size/pixelSizeX)
+    overlap_percentage = overlap_pc  # make extra tiles with overlap (every bird will be accounted this way, not cut in half)
 
     # Calculate the overlap size in pixels
     overlap_size_W = int(W * overlap_percentage)
@@ -228,7 +231,8 @@ def shuffle_filter_tiles(raster_tiles, mask_tiles, achtergrond = 0):
                 bird_mask_tiles.append(mask_tiles[i])
 
         # Filter a percentage of the no bird tiles (to reduce dataset)
-        remove_count = len(no_bird_raster_tiles) * (100 - bg_keep_pc) // 100
+        bg_keep_pc = achtergrond * 100 if achtergrond != 0 else 0
+        remove_count = int(len(no_bird_raster_tiles) * (100 - bg_keep_pc) // 100)
         indices_to_remove = random.sample(range(len(no_bird_raster_tiles)), remove_count)
         no_bird_raster_tiles = [item for i, item in enumerate(no_bird_raster_tiles) if i not in indices_to_remove]
         no_bird_mask_tiles = [item for i, item in enumerate(no_bird_mask_tiles) if i not in indices_to_remove]

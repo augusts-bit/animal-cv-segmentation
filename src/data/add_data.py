@@ -79,7 +79,25 @@ def main():
                         help="Shapes als input (.shp)")
     parser.add_argument("dataset", type=str, widget="DirChooser", default=os.getcwd(),
                         help="Folder waar de dataset is/moet komen")
+    parser.add_argument("--grootte", type=int, default=5, widget='IntegerField',
+                        help="Horizontale en verticale grootte (m) van de geknipte foto's")
+    parser.add_argument("--overlap", type=float, default=0.5, widget='DecimalField',
+                        help="Horizontale en verticale overlap fractie tussen geknipte foto's")
+    parser.add_argument("--achtergrond", type=float, default=0.0, widget='DecimalField',
+                        help="Fractie achtergrond foto's (met geen vogels) dat wordt meegenomen in de dataset")
     args = parser.parse_args()
+
+    # Make sure arguments are within proper range
+    if args.overlap < 0:
+        args.overlap = 0.0
+    if args.overlap > 1:
+        args.overlap = 1.0
+    if args.achtergrond < 0:
+        args.achtergrond = 0.0
+    if args.achtergrond > 1:
+        args.achtergrond = 1.0
+    if args.grootte < 0:
+        args.grootte = 0
 
     # Run data preparation
     prepare_data(args)
@@ -89,7 +107,7 @@ def main():
     ########################################
 
     R = fedit(title='Data toevoegen aan dataset?',
-              comment='Check of de data goed in de "temp" folder goed is (zie bv. de plots)',
+              comment='Check of de data in de "temp" folder goed is (zie bv. de plots)',
               data=[('Toevoegen?', [2, 'Ja', 'Nee'])])
 
     if R[0] == 1: # Ja
@@ -133,10 +151,10 @@ def prepare_data(args):
 
     # Tile
     print("----------------------------")
-    raster_tiles, mask_tiles = tile(args.raster, os.path.join(args.dataset, "temp", "full_mask.tif"))
+    raster_tiles, mask_tiles = tile(args.raster, os.path.join(args.dataset, "temp", "full_mask.tif"), args.grootte, args.overlap)
 
     # Filter tiles
-    raster_tiles, mask_tiles = shuffle_filter_tiles(raster_tiles, mask_tiles)
+    raster_tiles, mask_tiles = shuffle_filter_tiles(raster_tiles, mask_tiles, args.achtergrond)
     print("----------------------------")
 
     # Plot to check
