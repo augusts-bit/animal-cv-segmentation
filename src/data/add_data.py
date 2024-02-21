@@ -174,9 +174,6 @@ def accept_data(args):
         # move only files
         if os.path.isfile(source):
             shutil.move(source, destination)
-
-    print(source)
-    print(destination)
     
     # Masks
     folder_destination = os.path.join(args.dataset, "masks")
