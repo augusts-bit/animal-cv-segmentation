@@ -64,7 +64,8 @@ if os.path.isfile(os.path.join(args.traindata, "soorten.json")):
     print("Dataset contains:", soorten)
 else:
     soorten, min_width, min_height = get_classes_sizes(os.path.join(args.traindata, "annotations"))
-    print("Dataset contains:", soorten)
+    print("Warning, no soorten.json found!")
+    print("Dataset now contains:", soorten)
     print("Minimum width and heigth:", min_width, "x", min_height) # maybe base rescaling of this
 
 # save dictionary of classes
