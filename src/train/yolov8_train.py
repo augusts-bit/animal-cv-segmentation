@@ -57,16 +57,20 @@ print(os.listdir(args.traindata))
 
 # ==============================================================
 
-# ann_files = sorted(os.listdir(os.path.join(args.traindata, "annotations")))
-categories, min_width, min_height = get_classes_sizes(os.path.join(args.traindata, "annotations"))
-soorten = sorted(list(set(categories)))
-print("Dataset contains:", soorten)
-print("Minimum width and heigth:", min_width, "x", min_height) # maybe base rescaling of this
+# Check if there is a soorten.json, if not, create soorten list but this may cause classification errors (faulty indexes)
+if os.path.isfile(os.path.join(args.traindata, "soorten.json")):
+    with open(os.path.join(args.traindata, "soorten.json"), 'r') as json_file:
+        soorten = json.load(json_file)
+    print("Dataset contains:", soorten)
+else:
+    soorten, min_width, min_height = get_classes_sizes(os.path.join(args.traindata, "annotations"))
+    print("Dataset contains:", soorten)
+    print("Minimum width and heigth:", min_width, "x", min_height) # maybe base rescaling of this
 
 # save dictionary of classes
 soorten_dict = {str(index): bird for index, bird in enumerate(soorten)}
 with open('outputs/model_categories.json', 'w') as json_file:
-    json.dump(soorten_dict, json_file)
+    json.dump(soorten_dict, json_file)  
 
 # ------------------------------------------------------------------------------------- #
 # Split train-validation and create yaml
