@@ -121,7 +121,7 @@ def recreate_labels(soorten, args):
     # Create labels in labels folder
     make_labels(os.path.join(args.dataset, "annotations"), os.path.join(args.dataset, "masks"), os.path.join(args.dataset, "labels"), soorten)
 
-    print("Klaar! Oude labels vind je in 'old_labels', de nieuwe in 'labels')
+    print("Klaar! Oude labels vind je in 'old_labels', de nieuwe in 'labels'")
     print("----------------------------")
 
 if __name__ == "__main__":
