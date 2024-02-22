@@ -51,5 +51,8 @@ def get_classes_sizes(ann_dir):
                   min_width = min(min_width, width)
                   min_height = min(min_height, height)
 
+  # Return only unique categories
+  categories = list(set(categories))
+
   # Return categories and sizes
-  return categories, min_width, min_height
+  return sorted(categories), min_width, min_height
