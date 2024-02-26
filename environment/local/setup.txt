@@ -26,6 +26,7 @@ pip install ultralytics
 
 # Install Gooey for GUI (https://github.com/chriskiehl/Gooey)
 pip install Gooey
+pip install formlayout # to get pop-up after GUI
 
 # Install GDAL, geopandas, rasterio
 conda install gdal # 3.0.2 version may solve import issue
