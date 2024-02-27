@@ -50,6 +50,8 @@ conda install -c conda-forge matplotlib
 
 # If OMP: Error #15
 conda install nomkl --channel conda-forge # May need to install some packages again, but maybe not
+# Better: delete 'libiomp5md.dll' file in anaconda3/envs/XXX/Library/bin
+
 
 ## Install SAHI --> optional
 # Clone SAHI and get pull request to support YOLO segmentation
