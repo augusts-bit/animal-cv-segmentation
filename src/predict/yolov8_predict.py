@@ -47,6 +47,7 @@ from rasterio.transform import from_origin
 from rasterio.transform import Affine
 import matplotlib.pyplot as plt
 from osgeo import gdal
+from skimage.segmentation import clear_border
 
 # Install GDAL like this?
 import subprocess
@@ -105,11 +106,10 @@ def main(args):
     # Stack to image
     raster_img = np.dstack((raster_b1, raster_b2, raster_b3))
 
-    # cell size of Texel PHZ
-    target_cs = 0.011272670412636411
-
     # Tile pixel size (depending on cell size)
-    W = round(445 * (target_cs/pixelSizeX)) # ~ 5.0 m x 5.0 m # was 350
+    W = int(args.grootte/pixelSizeX)
+    # target_cs = 0.011272670412636411 # cell size of Texel PHZ
+    # W = round(445 * (target_cs/pixelSizeX)) # ~ 5.0 m x 5.0 m # was 350
 
     # Split into tiles
 
@@ -207,8 +207,17 @@ def main(args):
             combined_mask = np.sum(masks, axis=0)
 
             for instance in range(len(masks)):
+                # Remove mask if detected at the border
+                # https://github.com/scikit-image/scikit-image/blob/main/skimage/segmentation/_clear_border.py
+                instance_mask = clear_border(masks[instance])
+
+                # Continue with next if mask was removed because of the border
+                if np.all(instance_mask == 0) or np.all(instance_mask == False):
+                    continue
+
                 # Identify the pixels where the mask is true
-                mask_true_indices = masks[instance] == 1
+                mask_true_indices = instance_mask == 1
+                # mask_true_indices = masks[instance] == 1
                 resized_mask = cv2.resize(mask_true_indices.astype(np.uint8), (W, W), interpolation=cv2.INTER_NEAREST)  # YOLOv8 makes mask of other size, so resize
 
                 # Check for previous detection and confidence score of location first
@@ -329,14 +338,14 @@ def main(args):
         id = id + 1
 
     # Remove geometries smaller than 0.005 (small leftover pixel masks due to merging)
-    polygons = polygons[polygons['grootte'] >= 0.005]
+    polygons = polygons[polygons['grootte'] >= 0.005] # may need to determine threshold with ArcGIS Pro/QGIS
 
     # Transform geometry
     with rasterio.open(args.input) as src:
         transform = src.transform
         crs = src.crs
 
-    # Transform the geometry of the polygons to match that of the original raster (will still need to do 'Define Projection' in ArcGIS Pro)
+    # Transform the geometry of the polygons to match that of the original raster (may still need to do 'Define Projection' in ArcGIS Pro)
     polygons = polygons.set_crs(crs)
 
     # Join nearest to spot bad predictions (e.g., double predictions for one bird are often really close to each other)

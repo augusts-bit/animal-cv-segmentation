@@ -52,6 +52,7 @@ import re
 import torch
 import gc
 import shutil
+import time
 
 # Other
 import sys, os, distutils.core
@@ -62,7 +63,8 @@ import geopandas as gpd
 from pyproj import CRS
 import matplotlib.image as mpimg
 import rasterio
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, LineString, MultiPolygon
+from shapely.affinity import scale
 import random
 import rasterio
 from rasterio.windows import from_bounds
@@ -71,7 +73,6 @@ from rasterio.transform import from_origin
 from rasterio.transform import Affine
 import matplotlib.pyplot as plt
 from osgeo import gdal
-import time
 
 # Install GDAL like this?
 import subprocess
@@ -110,6 +111,8 @@ def main():
                         help="Geef aan welk model")
     parser.add_argument("model", type=str, widget="DirChooser", # subfolder name of location of model
                         help="Folder locatie van model weights (*.pt, *.pth), configuratie (*.yaml) en categories.json")
+    parser.add_argument("--grootte", type=int, default=5, widget='IntegerField',
+                        help="Horizontale en verticale grootte (m) van de geknipte foto's")
     parser.add_argument("--overlap", type=range_limited_float_type, default=0.5, widget='DecimalField',
                         help="Horizontale en verticale overlap fractie tussen geknipte fotos")
     parser.add_argument("--threshold", type=range_limited_float_type, default=0.3, widget='DecimalField',
@@ -118,11 +121,11 @@ def main():
 
     # Run Detectron2 or YOLOv8 prediction script
     if args.modeltype == "YOLOv8":
-        import yolov8_predict_test  # YOLO prediction
-        yolov8_predict_test.main(args)
+        import yolov8_predict  # YOLO prediction
+        yolov8_predict.main(args)
     if args.modeltype == "Mask R-CNN":
-        import detectron2_predict_test  # Mask R-CNN prediction
-        detectron2_predict_test.main(args)
+        import detectron2_predict  # Mask R-CNN prediction
+        detectron2_predict.main(args)
     else:
         print("Geen geldige modeltype")
 
