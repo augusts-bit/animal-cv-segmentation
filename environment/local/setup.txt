@@ -7,7 +7,7 @@
 # CUDA Toolkits (and maybe also CUDNN)
 
 # Create environment
-conda create -n bird_predict_env python=3.9 (3.9 to get right GeoPandas version to calculate distance)
+conda create -n bird_predict_env python=3.9 (>=3.9 to get right GeoPandas version to calculate distance)
 conda activate bird_predict_env
 
 # Install CUDA for GPU support (optional if you want with GPU)
@@ -32,6 +32,9 @@ pip install formlayout # to get pop-up after GUI
 conda install gdal # 3.0.2 version may solve import issue
 pip install geopandas
 pip install rasterio # or rasterio conda install -c conda-forge
+
+# Install scikit-image (remove border masks)
+pip install scikit-image
 
 # Pyarrow (dependency of Pandas) and Pillow
 pip install pyarrow 
