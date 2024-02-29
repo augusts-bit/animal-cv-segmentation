@@ -55,10 +55,15 @@ import subprocess
 import sys
 
 # Function to create a shapefile from a (float) mask
-def mask_to_shape(args, unique_mask, categories, gt, model_name):
+def mask_to_shape(args, unique_mask, categories, gt, model_name, frommask=False):
 
     # Get rastername
-    rastername = os.path.basename(args.input)
+    if frommask == False: # rastername variable is stored in 'args.input'
+        rasterloc = args.input
+        rastername = os.path.basename(args.input)
+    else:
+        rasterloc = args.raster # rastername variable is stored in 'args.input'
+        rastername = os.path.basename(args.raster)
 
     # Identify contours for each bird and what species they are
     contours = []
@@ -133,7 +138,7 @@ def mask_to_shape(args, unique_mask, categories, gt, model_name):
     polygons = polygons[polygons['grootte'] >= 0.005] # may need to determine threshold with ArcGIS Pro/QGIS
 
     # Transform geometry
-    with rasterio.open(args.input) as src:
+    with rasterio.open(rasterloc) as src:
         transform = src.transform
         crs = src.crs
 
@@ -147,8 +152,12 @@ def mask_to_shape(args, unique_mask, categories, gt, model_name):
         polygons = polygons.merge(polygons_joined[["pred_id", "k_afstand"]], on='pred_id')
 
     # Save the transformed GeoDataFrame
-    polygons.to_file(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_"+str(model_name)+"_polygons.shp"),
+    if frommask == False: # normal prediction will make an output folder
+        polygons.to_file(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_"+str(model_name)+"_polygons.shp"),
                             crs=crs)
+    else: # shapefiles directly based on mask not
+        polygons.to_file(os.path.join(args.output, os.path.splitext(rastername)[0] + "_" + str(model_name) + "_polygons.shp"),
+                         crs=crs)
 
     print("-----------------------------------")
     print("Klaar! Zie " + os.path.splitext(rastername)[0] + "_"+str(model_name)+"_polygons.shp")
