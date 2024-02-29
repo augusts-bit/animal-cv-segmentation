@@ -156,11 +156,14 @@ def mask_to_shape(args, unique_mask, categories, gt, model_name, frommask=False)
         polygons.to_file(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_"+str(model_name)+"_polygons.shp"),
                             crs=crs)
     else: # shapefiles directly based on mask not
-        polygons.to_file(os.path.join(args.output, os.path.splitext(rastername)[0] + "_" + str(model_name) + "_polygons.shp"),
+        polygons.to_file(os.path.join(args.output, os.path.splitext(os.path.basename(args.mask))[0] + ".shp"),
                          crs=crs)
 
     print("-----------------------------------")
-    print("Klaar! Zie " + os.path.splitext(rastername)[0] + "_"+str(model_name)+"_polygons.shp")
+    if frommask == False:
+        print("Klaar! Zie " + os.path.splitext(rastername)[0] + "_"+str(model_name)+"_polygons.shp")
+    else:
+        print("Klaar! Zie " + os.path.join(args.output, os.path.splitext(os.path.basename(args.mask))[0] + ".shp"))
     print("-----------------------------------")
 
 # Run

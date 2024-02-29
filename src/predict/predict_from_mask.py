@@ -142,9 +142,5 @@ def main():
     # Run mask_to_shape
     mask_to_shape(args, unique_mask, categories, gt, "FromMask", frommask=True)
 
-    print("-----------------------------------")
-    print("De shapes zitten in de aangegeven output folder: " + str(args.output))
-    print("-----------------------------------")
-
 if __name__ == "__main__":
     main()
