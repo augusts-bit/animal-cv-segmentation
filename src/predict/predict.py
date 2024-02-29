@@ -79,7 +79,7 @@ import subprocess
 import sys
 
 # Import helpers
-# from helpers.def_custom_sliced_predict import *
+from helpers.mask2shape import *
 
 from gooey import Gooey, GooeyParser # GUI
 

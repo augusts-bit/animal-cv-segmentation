@@ -81,7 +81,7 @@ import subprocess
 import sys
 
 # Import helpers
-# from helpers.def_custom_sliced_predict import *
+from helpers.mask2shape import *
 
 # ==============================================================
 
@@ -194,9 +194,13 @@ def main(args):
     print("Model is geladen, begint met segmentatie en classificatie... Zie " + str(os.path.splitext(rastername)[0]) + "_MaskRCNN_mask.png voor progressie (en back-up bij crash)")
     print("-----------------------------------")
 
-    # Create a binary mask for the entire original image
-    full_mask = np.zeros_like(raster_img[:,:,0], dtype=np.uint8)
-    score_mask = np.zeros_like(raster_img[:,:,0], dtype=np.uint8)
+    # Create masks to keep track of predictions for the entire original image
+    score_mask = np.zeros_like(raster_img[:, :, 0], dtype=np.uint8)
+    unique_mask = np.zeros_like(raster_img[:, :, 0],
+                                dtype=np.float32)  # float, store category as the number with a unique decimal
+
+    # unique mask replaces full_mask
+    # full_mask = np.zeros_like(raster_img[:,:,0], dtype=np.uint8)
 
     # Skip white images
     def all_white_pixels(image):
@@ -214,6 +218,7 @@ def main(args):
 
     # Loop through all tiles
     start = time.time()  # Check how long it takes
+    unique_n = 1
     for i, tile in enumerate(raster_tiles):
     # for i, tile in tqdm(enumerate(raster_tiles), total=len(raster_tiles)):
 
@@ -244,7 +249,17 @@ def main(args):
             for instance in range(len(masks)):
                 # Remove mask if detected at the border
                 # https://github.com/scikit-image/scikit-image/blob/main/skimage/segmentation/_clear_border.py
-                instance_mask = clear_border(masks[instance])
+                # Use extra buffer (helps with preventing faulty 'close-to' border predictions of half birds) --> make dependent on the overlap
+                if args.overlap <= 0.2:
+                    buffer_s = 0
+                else:
+                    buffer_s = int(cfg.INPUT.MIN_SIZE_TEST / 6)
+
+                # But only do if the tile size is large enough (otherwise predictions always touch the border and will be removed)
+                if args.grootte <= 2:
+                    instance_mask = masks[instance]
+                else:
+                    instance_mask = clear_border(masks[instance], buffer_size=buffer_s)
 
                 # Continue with next if mask was removed because of the border
                 if np.all(instance_mask == 0) or np.all(instance_mask == False):
@@ -255,23 +270,43 @@ def main(args):
                 # mask_true_indices = masks[instance] == 1
 
                 # Check for previous detection and confidence score of location first
-                score_values = score_mask[x:x + W, y:y + W][mask_true_indices]
-                score_values = score_values[score_values != 0]
+                all_score_values = score_mask[x:x + W, y:y + W][mask_true_indices]
+                score_values = all_score_values[all_score_values != 0]
 
-                if len(score_values) > 0:
+                # if more x% of the area already has a prediction (thus probably same object), check the score
+                if (np.count_nonzero(all_score_values) / all_score_values.size) > 0.6:
                     unique_values, counts = np.unique(score_values, return_counts=True)
-                    score_value = unique_values[np.argmax(counts)]
+                    score_value = np.max(unique_values)
+                    # score_value = unique_values[np.argmax(counts)]
                 else:
                     score_value = 0
 
+                # if there is any overlap, check the score
+                # if len(score_values) > 0:
+                #     unique_values, counts = np.unique(score_values, return_counts=True)
+                #     score_value = unique_values[np.argmax(counts)]
+                # else:
+                #     score_value = 0
+
                 # Update relevant portion of full_mask depending on confidence score
-                if score_value < int(np.around(scores[instance]*100,0)):
-                    full_mask[x:x + W, y:y + W][mask_true_indices] = class_ids[instance] + 1 # +1 to leave 0 as background
-                    score_mask[x:x + W, y:y + W][mask_true_indices] = int(np.around(scores[instance]*100,0))
+                if score_value < int(np.around(scores[instance] * 100, 0)):
+                    # Make the prediction unique (prevent merging of two or more predictions)
+                    if unique_n == 25:
+                        unique_n = 1
+                    unique_mask[x:x + W, y:y + W][mask_true_indices] = float(
+                        str(int(class_ids[instance] + 1)) + '.' + str(unique_n))
+                    unique_n = unique_n + 1
+
+                    # Update the mask with shapes and their category
+                    # full_mask[x:x + W, y:y + W][mask_true_indices] = class_ids[instance] + 1  # +1 to leave 0 as background
+
+                    # Update the score mask
+                    score_mask[x:x + W, y:y + W][mask_true_indices] = int(np.around(scores[instance] * 100, 0))
 
         # Save mask and progress
         if (i + 1) % 20 == 0:
-            plt.imsave(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_mask.png"), full_mask)
+            plt.imsave(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_mask.png"),
+                       unique_mask)
             # you can use the mask to create shapefiles in case of crash/stop (continue at next step)
 
             # Calculate time
@@ -287,7 +322,8 @@ def main(args):
                                                                          time.gmtime(int(total_time)))))  # , end='\r')
 
     print("Totale tijd:", time.strftime('%H:%M:%S', time.gmtime(int(time.time() - start))))  # Final time
-    plt.imsave(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_mask.png"), full_mask) # Final mask save
+    plt.imsave(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_mask.png"),
+               unique_mask)  # Final mask save
 
     # ==============================================================
 
@@ -296,108 +332,23 @@ def main(args):
     # ==============================================================
 
     print("-----------------------------------")
-    print("Klaar, " + os.path.splitext(rastername)[0] + "_MaskRCNN_mask.png" + " wordt geconverteerd naar ESRI shapefile...")
+    print("Klaar, " + os.path.splitext(rastername)[
+        0] + "_YOLOv8_mask.png" + " wordt geconverteerd naar ESRI shapefile...")
     print("-----------------------------------")
 
     # Set categories
     if os.path.isfile(os.path.join(str(args.model), 'model_categories.json')):
         with open(os.path.join(str(args.model), 'model_categories.json'), 'r') as json_file:
-            categories = json.load(json_file) # make sure the categories are from the training and follow the indexing
+            categories = json.load(json_file)  # make sure the categories are from the training and follow the indexing
     else:
         # This might be incorrect incase different/new species are added in training
-        categories = {'0': 'anders', '1': 'dwergmeeuw', '2': 'grote stern', '3': 'kluut', '4': 'kokmeeuw', '5': 'visdief', '6': 'zwartkopmeeuw'}
+        # categories = {'0': 'anders', '1': 'dwergmeeuw', '2': 'grote stern', '3': 'kluut', '4': 'kokmeeuw', '5': 'visdief', '6': 'zwartkopmeeuw'}
+        print("Kon geen 'model_categories.json' bestand vinden in model folder...", "\n",
+              "Het model weet wel de soort index, maar niet bij welke index welke soort hoort... (wordt nu 'Unknown')")
+        categories = {}
 
-    # Identify contours for each bird and what species they are
-    contours = []
-    majority_values = []
-
-    for class_value in np.unique(full_mask):
-        if class_value == 0:  # Skip background
-            continue
-
-        mask_class = (full_mask == class_value).astype(np.uint8)
-        contours_class, _ = cv2.findContours(mask_class, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        for contour in contours_class:
-            # Find the bounding box of the contour
-            x, y, w, h = cv2.boundingRect(contour)
-
-            # Extract the region of interest (ROI)
-            roi = full_mask[y:y + h, x:x + w]
-
-            # Find the unique values and their counts in the ROI
-            unique_values, counts = np.unique(roi, return_counts=True)
-
-            # Exclude 0 from consideration (is background)
-            counts = counts[unique_values != 0]
-            unique_values = unique_values[unique_values != 0]
-
-            # Get the index of the maximum count (majority value) --> necessary in cases of overlap
-            majority_index = np.argmax(counts)
-            majority_value = unique_values[majority_index]
-
-            # Append the contour and its majority value
-            contours.append(contour)
-            majority_values.append(majority_value)
-
-    # Create GeoDataFrame to store polygons
-    polygons = gpd.GeoDataFrame(columns=['pred_id', 'soort_id', 'soort', 'grootte', 'geometry'])
-    id = 1
-
-    # Iterate over contours and create polygons
-    for class_id, (contour, majority_value) in enumerate(zip(contours, majority_values), start=1):
-
-        # Geometry, loop through the points in the contour
-        geographic_points = []
-        for point in contour.squeeze():
-            if np.isscalar(point):  # Check if point is a scalar
-                continue
-            x_pixel, y_pixel = point[0], point[1]
-            x_geo = gt[0] + (x_pixel * gt[1]) + (
-                        y_pixel * gt[2])  # gt is geotransform of input raster (defined earlier)
-            y_geo = gt[3] + (x_pixel * gt[4]) + (y_pixel * gt[5])
-            geographic_points.append([x_geo, y_geo])
-
-        # Check if there are enough points to create a polygon
-        if len(geographic_points) < 4:
-            continue
-
-        polygon = Polygon(geographic_points)  # Create a polygon from the converted points
-
-        # Soort
-        species_name = categories.get(str(majority_value - 1),
-                                      'Unknown')  # 0 is background in mask, so values are +1 of actual IDs
-
-        # Append
-        instance_row = pd.DataFrame(
-            {'pred_id': id, 'soort_id': majority_value, 'soort': species_name, 'grootte': polygon.area,
-             'geometry': polygon}, index=[0])
-        polygons = pd.concat([polygons, instance_row], ignore_index=True)
-        id = id + 1
-
-    # Remove geometries smaller than 0.005 (small leftover pixel masks due to merging)
-    polygons = polygons[polygons['grootte'] >= 0.005] # may need to determine threshold with ArcGIS Pro/QGIS
-
-    # Transform geometry
-    with rasterio.open(args.input) as src:
-        transform = src.transform
-        crs = src.crs
-
-    # Transform the geometry of the polygons to match that of the original raster (will still need to do 'Define Projection' in ArcGIS Pro)
-    polygons = polygons.set_crs(crs)
-
-    # Join nearest to spot bad predictions (e.g., double predictions for one bird are often really close to each other)
-    if sys.version_info >= (3, 9): # can only with Python >=3.9 for right GeoPandas version
-        polygons_joined = gpd.sjoin_nearest(polygons, polygons, distance_col="k_afstand", exclusive=True) #.reset_index(drop=True)
-        polygons_joined = polygons_joined.rename(columns={'pred_id_left': 'pred_id'})
-        polygons = polygons.merge(polygons_joined[["pred_id", "k_afstand"]], on='pred_id')
-
-    # Save the transformed GeoDataFrame
-    polygons.to_file(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_polygons.shp"), crs=crs)
-
-    print("-----------------------------------")
-    print("Klaar! Zie " + os.path.splitext(rastername)[0] + "_MaskRCNN_polygons.shp")
-    print("-----------------------------------")
+    # Apply function to create shapes (see helpers/mask2shape.py)
+    mask_to_shape(args, unique_mask, categories, gt, "MaskRCNN")
 
 # Run
 if __name__ == "__main__":
