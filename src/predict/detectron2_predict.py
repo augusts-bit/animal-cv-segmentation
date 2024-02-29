@@ -281,13 +281,6 @@ def main(args):
                 else:
                     score_value = 0
 
-                # if there is any overlap, check the score
-                # if len(score_values) > 0:
-                #     unique_values, counts = np.unique(score_values, return_counts=True)
-                #     score_value = unique_values[np.argmax(counts)]
-                # else:
-                #     score_value = 0
-
                 # Update relevant portion of full_mask depending on confidence score
                 if score_value < int(np.around(scores[instance] * 100, 0)):
                     # Make the prediction unique (prevent merging of two or more predictions)
