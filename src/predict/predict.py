@@ -111,6 +111,8 @@ def main():
                         help="Geef aan welk model")
     parser.add_argument("model", type=str, widget="DirChooser", # subfolder name of location of model
                         help="Folder locatie van model weights (*.pt, *.pth), configuratie (*.yaml) en categories.json")
+    parser.add_argument("backup", type=str, choices=['Ja', 'Nee'], default='Ja', widget="Dropdown",
+                        help="Wil je een backup Numpy mask maken voor predict_from_mask.py? Kan zwaar zijn bij grote rasters")
     parser.add_argument("--grootte", type=int, default=5, widget='IntegerField',
                         help="Horizontale en verticale grootte (m) van de geknipte foto's")
     parser.add_argument("--overlap", type=range_limited_float_type, default=0.5, widget='DecimalField',

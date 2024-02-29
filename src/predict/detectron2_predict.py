@@ -192,10 +192,10 @@ def main(args):
 
     print("-----------------------------------")
     print("Model is geladen, begint met segmentatie en classificatie...", "\n"
-                                                                          "Zie " + str(
-        os.path.splitext(rastername)[0]) + "_MaskRCNN_mask.png voor progressie", "\n"
-                                                                               "Gebruik " + str(
-        os.path.splitext(rastername)[0]) + "_MaskRCNN_mask.npy voor back-up (met predict_from_mask.py)")
+          "Zie " + str(os.path.splitext(rastername)[0]) + "_MaskRCNN_mask.png voor progressie", "\n")
+
+    if args.backup == "Ja":
+        print("Gebruik " + str(os.path.splitext(rastername)[0]) + "_MaskRCNN_mask.npy voor back-up (met predict_from_mask.py)")
     print("-----------------------------------")
 
     # Create masks to keep track of predictions for the entire original image
@@ -305,7 +305,8 @@ def main(args):
             # Save mask as photo to see progress
             plt.imsave(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_mask.png"),
                        unique_mask)
-            np.save(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_mask.npy"),
+            if args.backup == "Ja":
+                np.save(os.path.join(args.output, 'output', os.path.splitext(rastername)[0] + "_MaskRCNN_mask.npy"),
                     unique_mask)
             # you can use the mask array to create shapefiles in case of crash/stop (continue at next step)
 
