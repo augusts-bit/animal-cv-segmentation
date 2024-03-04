@@ -264,7 +264,7 @@ data_loader = build_detection_test_loader(cfg, cfg.DATASETS.TEST[0], DatasetMapp
 epoch_iter = int((train_length * 0.9)/cfg.SOLVER.IMS_PER_BATCH) # number of iterations per epoch
 epoch_iter_checkpoint = int(epoch_iter/10)  # number of iterations per checkpoint
 ml_flow_hook = MLflowHook(epoch_iter_checkpoint) # hook of loss per checkpoint or epoch?
-trainer.register_hooks([ml_flow_hook])
+# trainer.register_hooks([ml_flow_hook]) # Commented out, because hooks make training longer
 
 # Train
 trainer.resume_or_load(resume=False)
