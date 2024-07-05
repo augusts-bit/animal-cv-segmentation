@@ -60,7 +60,7 @@ import sys
 # from helpers.def_custom_sliced_predict import *
 
 from gooey import Gooey, GooeyParser # GUI
-from formlayout import fedit # form to accept
+# from formlayout import fedit # form to accept (PySide not found error)
 
 # ==============================================================
 
@@ -284,7 +284,7 @@ def check_plot(raster_tiles, mask_tiles, args):
 
     print("Klaar!")
 
-# Write data
+# Write data segmentation YOLO and MaskRCNN
 def write2data(root_path, rastername, raster_tiles, mask_tiles, soorten):
 
     # Print
@@ -300,11 +300,11 @@ def write2data(root_path, rastername, raster_tiles, mask_tiles, soorten):
     os.makedirs(os.path.join(root_path, "temp", "annotations"), exist_ok=True)
     os.makedirs(os.path.join(root_path, "temp", "labels"), exist_ok=True)
 
-    # Write first to temp folder
-    out_img_path = os.path.join(root_path, "temp", "images")
-    out_mask_path = os.path.join(root_path, "temp", "masks")
-    out_anno_path = os.path.join(root_path, "temp", "annotations")
-    out_label_path = os.path.join(root_path, "temp", "labels")
+    # Write first to temp folder if no errors (PySide)
+    out_img_path = os.path.join(root_path, "images")
+    out_mask_path = os.path.join(root_path, "masks")
+    out_anno_path = os.path.join(root_path, "annotations")
+    out_label_path = os.path.join(root_path, "labels")
 
     for i in range(len(raster_tiles)):
 
@@ -413,3 +413,83 @@ def write2data(root_path, rastername, raster_tiles, mask_tiles, soorten):
                 f.write('{}\n'.format(line))
 
     print("Klaar!")
+
+# Write YOLO bounding box data
+def write2data_yolobox(root_path, rastername, raster_tiles, mask_tiles, soorten):
+
+    # Print
+    print("Data wordt gemaakt... ")
+
+    # Create folders if they do not yet exist
+    os.makedirs(os.path.join(root_path, "images"), exist_ok=True)
+    os.makedirs(os.path.join(root_path, "labels"), exist_ok=True)
+
+    # Write first to temp folder if no errors (PySide)
+    out_img_path = os.path.join(root_path, "images")
+    out_label_path = os.path.join(root_path, "labels")
+
+    for i in range(len(raster_tiles)):
+
+        # Output path
+        out_img = os.path.join(out_img_path, rastername + "_img" + str(i + 1) + ".png")
+        out_label = os.path.join(out_label_path, rastername + "_img" + str(i + 1) + ".txt")
+        # label needs to have the same name as the img
+
+        # Save images to file
+        plt.imsave(out_img, raster_tiles[i].astype(np.uint8), cmap='gray', format='png')
+
+        # Calculate boxes from mask
+        mask_tile_img = mask_tiles[i].copy()
+        contours, _ = cv2.findContours(mask_tile_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        bird_labels = []  # List to store bird labels corresponding to each contour
+
+        # Create YOLO labels for the bounding boxes
+        all_boxes = []  # List to store bounding box coordinates
+        all_class_indices = []  # List to store respective class indices
+
+        # Image width and height
+        img_colour = Image.open(out_img)
+        width, height = img_colour.size
+
+        # Loop over the objects
+        for contour in contours:
+            if cv2.contourArea(contour) > 0:
+                # Find the bounding box of the contour
+                x, y, w, h = cv2.boundingRect(contour)
+
+                # Extract the region of interest (ROI)
+                roi = mask_tile_img[y:y + h, x:x + w]
+
+                # Find the unique values and their counts in the ROI
+                unique_values, counts = np.unique(roi, return_counts=True)
+
+                # Exclude 0 from consideration (is background)
+                counts = counts[unique_values != 0]
+                unique_values = unique_values[unique_values != 0]
+
+                # Get the index of the maximum count (majority value) --> necessary in cases of overlap
+                majority_index = np.argmax(counts)
+
+                # Assign the majority value (bird soort)
+                bird_label = unique_values[majority_index]
+                bird_labels.append(bird_label)
+
+                # Normalize the bounding box coordinates
+                x_center = (x + w / 2) / width
+                y_center = (y + h / 2) / height
+                w_norm = w / width
+                h_norm = h / height
+
+                # Append bounding boxes and class index to the lists
+                all_boxes.append([x_center, y_center, w_norm, h_norm])
+                all_class_indices.append(bird_label - 1)  # YOLO indexing starts at 0
+
+        # Write YOLO labels
+        with open(out_label, 'w') as f:
+            for class_index, box in zip(all_class_indices, all_boxes):
+                line = '{} {}'.format(class_index, ' '.join(map(str, box)))
+                f.write('{}\n'.format(line))
+
+    print("Klaar!")
+
+
