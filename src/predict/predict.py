@@ -122,14 +122,24 @@ def main():
     args = parser.parse_args()
 
     # Run Detectron2 or YOLOv8 prediction script
+    time_start = time.time() # Check how long it takes
     if args.modeltype == "YOLOv8":
-        import yolov8_predict  # YOLO prediction
-        yolov8_predict.main(args)
+        import yolov8_predict_bbox  # YOLO prediction
+        yolov8_predict_bbox.main(args)
     if args.modeltype == "Mask R-CNN":
         import detectron2_predict  # Mask R-CNN prediction
         detectron2_predict.main(args)
     else:
         print("Geen geldige modeltype")
+
+    # Time
+    end_time = time.strftime('%H:%M:%S', time.gmtime(time.time()-time_start))
+
+    # Write txt of args and time
+    f = open(os.path.join(args.output, "args.txt"), "w")
+    f.write("tijd: ", end_time, " - grootte: ", args.grootte, " - overlap: ", args.overlap )
+    f.close()
+
 
 if __name__ == "__main__":
     main()
