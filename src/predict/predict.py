@@ -137,7 +137,7 @@ def main():
 
     # Write txt of args and time
     f = open(os.path.join(args.output, "args.txt"), "w")
-    f.write("tijd: ", end_time, " - grootte: ", args.grootte, " - overlap: ", args.overlap )
+    f.write(f"tijd: {end_time} - grootte: {args.grootte} - overlap: {args.overlap} - confidence: {args.threshold} \n")
     f.close()
 
 
