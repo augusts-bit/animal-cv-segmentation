@@ -114,7 +114,6 @@ def main(args):
     # Save folder
     if os.path.isdir(os.path.join(args.output,'output', 'slices')): # remove old slices folder so that it always contains slices of current run (will be made during prediction)
         shutil.rmtree(os.path.join(args.output,'output', 'slices'))
-
     os.makedirs(os.path.join(args.output,'output', 'slices'))
 
     # Load raster, convert to image and tile
@@ -161,16 +160,6 @@ def main(args):
             raster_tiles.append(tile)
             tile_locations.append((x, y))
 
-    # Save
-    # n = 1
-    # for raster_tile in raster_tiles:
-
-    #     raster_tile_name = os.path.join(args.output, 'output', 'slices', os.path.splitext(rastername)[0] + str(n) + ".png")
-    #     raster_tile = cv2.convertScaleAbs(raster_tile) # convert to uint8
-
-    #     plt.imsave(raster_tile_name, raster_tile)
-    #     n = n + 1
-
 # ==============================================================
 
 # Inference/predict
@@ -210,18 +199,16 @@ def main(args):
     unique_n = 1
     for i, tile in enumerate(raster_tiles):
 
-        # Load tile image by path
-        # tile_path = os.path.join(args.output, 'output', 'slices', os.path.splitext(rastername)[0] + str(i+1) + ".png")
-        # im = cv2.imread(tile_path)
-        # if os.path.isfile(tile_path) is False:
-        #     continue
-
         # Apply model to the tile
         imgsz_scale = W #544 # may want to change
         result = model(tile, conf=args.threshold, imgsz=imgsz_scale, device=device_name, verbose=False)
 
+        # Save slice result
+        if args.slices == "Ja" and len(result[0].boxes) != 0: # only if there is a detection
+            result[0].save(filename=os.path.join(args.output,'output', 'slices', os.path.splitext(rastername)[0] + str(i+1) + '.png'), font_size=8, pil=True)
+
         # Get model's output
-        if result[0].boxes is None:
+        if len(result[0].boxes) == 0:
             continue # no boxes were detected
         boxes = result[0].boxes.cpu().data.numpy() # [0] because only one image per iteration (can do batch)
         masks = masks = np.zeros((len(boxes), imgsz_scale, imgsz_scale), dtype=np.float32) # make empty masks object
